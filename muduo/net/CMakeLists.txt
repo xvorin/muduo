@@ -46,9 +46,9 @@ set(HEADERS
   EventLoop.h
   EventLoopThread.h
   EventLoopThreadPool.h
+  EventLoopManager.h
   InetAddress.h
   TcpClient.h
-  UdpClient.h
   TcpConnection.h
   TcpServer.h
   TimerId.h

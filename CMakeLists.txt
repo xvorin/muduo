@@ -23,7 +23,7 @@ set(CXX_FLAGS
  -Werror
  -Wconversion
  -Wno-unused-parameter
- -Wold-style-cast
+ -Wno-old-style-cast
  -Woverloaded-virtual
  -Wpointer-arith
  -Wshadow
