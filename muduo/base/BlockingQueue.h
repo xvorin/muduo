@@ -9,77 +9,84 @@
 #include "muduo/base/Condition.h"
 #include "muduo/base/Mutex.h"
 
-#include <deque>
 #include <assert.h>
+#include <deque>
 
-namespace muduo
-{
+namespace muduo {
 
-template<typename T>
-class BlockingQueue : noncopyable
-{
- public:
-  using queue_type = std::deque<T>;
-
-  BlockingQueue()
-    : mutex_(),
-      notEmpty_(mutex_),
-      queue_()
-  {
-  }
-
-  void put(const T& x)
-  {
-    MutexLockGuard lock(mutex_);
-    queue_.push_back(x);
-    notEmpty_.notify(); // wait morphing saves us
-    // http://www.domaigne.com/blog/computing/condvars-signal-with-mutex-locked-or-not/
-  }
-
-  void put(T&& x)
-  {
-    MutexLockGuard lock(mutex_);
-    queue_.push_back(std::move(x));
-    notEmpty_.notify();
-  }
-
-  T take()
-  {
-    MutexLockGuard lock(mutex_);
-    // always use a while-loop, due to spurious wakeup
-    while (queue_.empty())
+template <typename T>
+class BlockingQueue : public noncopyable {
+public:
+    explicit BlockingQueue(size_t s = 0)
+        : limit_(s)
+        , mutex_()
+        , notEmpty_(mutex_)
+        , queue_()
     {
-      notEmpty_.wait();
     }
-    assert(!queue_.empty());
-    T front(std::move(queue_.front()));
-    queue_.pop_front();
-    return front;
-  }
 
-  queue_type drain()
-  {
-    std::deque<T> queue;
+    void put(const T& x)
     {
-      MutexLockGuard lock(mutex_);
-      queue = std::move(queue_);
-      assert(queue_.empty());
+        MutexLockGuard lock(mutex_);
+        queue_.push_back(x);
+        if (limit_ && queue_.size() > limit_) {
+            queue_.pop_front();
+        }
+        notEmpty_.notify(); // wait morphing saves us
+        // http://www.domaigne.com/blog/computing/condvars-signal-with-mutex-locked-or-not/
     }
-    return queue;
-  }
 
-  size_t size() const
-  {
-    MutexLockGuard lock(mutex_);
-    return queue_.size();
-  }
+    void put(T&& x)
+    {
+        MutexLockGuard lock(mutex_);
+        queue_.push_back(std::move(x));
+        if (limit_ && queue_.size() > limit_) {
+            queue_.pop_front();
+        }
+        notEmpty_.notify();
+    }
 
- private:
-  mutable MutexLock mutex_;
-  Condition         notEmpty_ GUARDED_BY(mutex_);
-  queue_type        queue_ GUARDED_BY(mutex_);
-};  // __attribute__ ((aligned (64)));
+    T take()
+    {
+        MutexLockGuard lock(mutex_);
+        // always use a while-loop, due to spurious wakeup
+        while (queue_.empty()) {
+            notEmpty_.wait();
+        }
+        assert(!queue_.empty());
+        T front(std::move(queue_.front()));
+        queue_.pop_front();
+        return front;
+    }
 
-}  // namespace muduo
+    bool take(T& front, double seconds)
+    {
+        MutexLockGuard lock(mutex_);
+        // always use a while-loop, due to spurious wakeup
+        while (queue_.empty()) {
+            if (notEmpty_.waitForSeconds(seconds)) {
+                return false;
+            }
+        }
+        assert(!queue_.empty());
+        front = std::move(queue_.front());
+        queue_.pop_front();
+        return true;
+    }
 
-#endif  // MUDUO_BASE_BLOCKINGQUEUE_H
+    size_t size() const
+    {
+        MutexLockGuard lock(mutex_);
+        return queue_.size();
+    }
+
+private:
+    const size_t limit_;
+    mutable MutexLock mutex_;
+    Condition notEmpty_ GUARDED_BY(mutex_);
+    std::deque<T> queue_ GUARDED_BY(mutex_);
+};
+
+} // namespace muduo
+
+#endif // MUDUO_BASE_BLOCKINGQUEUE_H

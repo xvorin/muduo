@@ -11,6 +11,7 @@ set(net_SRCS
   Channel.cc
   Connector.cc
   EventLoop.cc
+  EventLoopManager.cc
   EventLoopThread.cc
   EventLoopThreadPool.cc
   InetAddress.cc
@@ -47,6 +48,7 @@ set(HEADERS
   EventLoopThreadPool.h
   InetAddress.h
   TcpClient.h
+  UdpClient.h
   TcpConnection.h
   TcpServer.h
   TimerId.h

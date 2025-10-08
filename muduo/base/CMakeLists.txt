@@ -6,6 +6,7 @@ set(base_SRCS
   Date.cc
   Exception.cc
   FileUtil.cc
+  StringUtil.cc
   LogFile.cc
   Logging.cc
   LogStream.cc
